@@ -1,0 +1,320 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雪地来信 ❄️</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Microsoft YaHei", sans-serif;
+  color: #53677a;
+  background: linear-gradient(#dcebf5, #f5faff 65%, #e5eff6);
+  overflow-x: hidden;
+}
+.snowflakes {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 5;
+}
+.flake {
+  position: absolute;
+  top: -20px;
+  color: white;
+  opacity: .8;
+  animation: fall linear infinite;
+}
+@keyframes fall {
+  to { transform: translateY(110vh) rotate(360deg); }
+}
+header {
+  text-align: center;
+  padding: 42px 15px 25px;
+}
+header h1 {
+  font-size: 29px;
+  letter-spacing: 5px;
+  margin: 0 0 12px;
+  color: #58758e;
+}
+header p {
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #8298aa;
+}
+.landscape {
+  height: 90px;
+  position: relative;
+  overflow: hidden;
+}
+.mountain {
+  position: absolute;
+  bottom: -65px;
+  width: 0;
+  height: 0;
+  border-left: 120px solid transparent;
+  border-right: 120px solid transparent;
+  border-bottom: 150px solid #c8dce9;
+}
+.mountain:nth-child(1) { left: -30px; }
+.mountain:nth-child(2) {
+  left: 30%;
+  border-bottom-color: #d6e6ef;
+  transform: scale(1.2);
+}
+.mountain:nth-child(3) {
+  right: -40px;
+  border-bottom-color: #c2d8e6;
+}
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 16px 35px;
+}
+.instruction {
+  text-align: center;
+  font-size: 14px;
+  color: #7d93a5;
+  margin: 18px 0;
+}
+.snow-paper {
+  position: relative;
+  height: 390px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 15% 90%, #dceaf3 0%, transparent 35%),
+    radial-gradient(ellipse at 90% 15%, #e7f1f7 0%, transparent 40%),
+    linear-gradient(145deg, #ffffff, #edf5fa);
+  box-shadow: 0 8px 28px #8da8bd35,
+              inset 0 0 25px #d4e4ef70;
+  border: 2px solid #ffffff;
+  touch-action: none;
+}
+.snow-paper::before,
+.snow-paper::after {
+  content: "";
+  position: absolute;
+  height: 24px;
+  left: -10%;
+  width: 120%;
+  background: #ffffff80;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.snow-paper::before { top: -15px; }
+.snow-paper::after { bottom: -17px; }
+canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+.tools {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 22px 0;
+}
+button {
+  border: 1px solid #cfdfeb;
+  border-radius: 25px;
+  padding: 12px 22px;
+  background: #ffffffd9;
+  color: #617e96;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 3px 8px #9eb4c522;
+}
+button:active { transform: scale(.96); }
+button.primary {
+  background: #789bb5;
+  color: white;
+  border-color: #789bb5;
+}
+.note {
+  text-align: center;
+  color: #9aafbf;
+  font-size: 12px;
+  line-height: 2;
+  margin-top: 25px;
+}
+footer {
+  text-align: center;
+  padding: 10px 0 30px;
+  color: #a2b5c4;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+</style>
+</head>
+<body>
+
+<div class="snowflakes" id="snowflakes"></div>
+
+<header>
+  <h1>❄️ 雪地来信 ❄️</h1>
+  <p>把想说的话，轻轻留在雪地里</p>
+</header>
+
+<div class="landscape">
+  <div class="mountain"></div>
+  <div class="mountain"></div>
+  <div class="mountain"></div>
+</div>
+
+<main>
+  <div class="instruction">
+    ✨ 用手指触碰雪地，写下你的心意 ✨
+  </div>
+
+  <div class="snow-paper" id="paper">
+    <canvas id="drawing"></canvas>
+  </div>
+
+  <div class="tools">
+    <button onclick="undo()">↶ 撤销</button>
+    <button class="primary" onclick="clearPaper()">❄ 清空雪地</button>
+  </div>
+
+  <div class="note">
+    每一笔，都是留给冬天的小小心意。<br>
+    愿你的心愿，都能被雪花温柔收藏。
+  </div>
+</main>
+
+<footer>MADE WITH LOVE · WINTER ❄️</footer>
+
+<script>
+const canvas = document.getElementById("drawing");
+const paper = document.getElementById("paper");
+const ctx = canvas.getContext("2d");
+
+let strokes = [];
+let current = null;
+let drawing = false;
+
+function resize() {
+  const oldWidth = canvas.width;
+  const oldHeight = canvas.height;
+  const oldStrokes = strokes;
+
+  const rect = paper.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+  strokes = oldStrokes;
+  redraw();
+}
+
+function redraw() {
+  const w = paper.clientWidth;
+  const h = paper.clientHeight;
+
+  ctx.clearRect(0, 0, w, h);
+
+  strokes.forEach(stroke => {
+    if (!stroke.points.length) return;
+
+    ctx.beginPath();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#a6bac9";
+    ctx.shadowColor = "#8298a9";
+    ctx.shadowBlur = 2;
+
+    stroke.points.forEach((p, i) => {
+      const x = p.x * w;
+      const y = p.y * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+
+    if (stroke.points.length === 1) {
+      const p = stroke.points[0];
+      ctx.lineTo(p.x * w + .1, p.y * h + .1);
+    }
+
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function getPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / rect.width,
+    y: (e.clientY - rect.top) / rect.height
+  };
+}
+
+canvas.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  drawing = true;
+  canvas.setPointerCapture(e.pointerId);
+  current = { points: [getPoint(e)] };
+  strokes.push(current);
+  redraw();
+});
+
+canvas.addEventListener("pointermove", e => {
+  if (!drawing || !current) return;
+  e.preventDefault();
+  current.points.push(getPoint(e));
+  redraw();
+});
+
+function stopDrawing() {
+  drawing = false;
+  current = null;
+}
+
+canvas.addEventListener("pointerup", stopDrawing);
+canvas.addEventListener("pointercancel", stopDrawing);
+
+function undo() {
+  if (strokes.length) {
+    strokes.pop();
+    redraw();
+  }
+}
+
+function clearPaper() {
+  if (strokes.length && confirm("要把雪地恢复干净吗？")) {
+    strokes = [];
+    redraw();
+  }
+}
+
+window.addEventListener("resize", resize);
+resize();
+
+// 飘落的雪花
+const snow = document.getElementById("snowflakes");
+
+for (let i = 0; i < 35; i++) {
+  const flake = document.createElement("span");
+  flake.className = "flake";
+  flake.textContent = Math.random() > .5 ? "❄" : "·";
+  flake.style.left = Math.random() * 100 + "%";
+  flake.style.fontSize = (8 + Math.random() * 15) + "px";
+  flake.style.animationDuration = (7 + Math.random() * 12) + "s";
+  flake.style.animationDelay = (-Math.random() * 15) + "s";
+  snow.appendChild(flake);
+}
+</script>
+</body>
+</html>
